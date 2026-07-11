@@ -166,8 +166,8 @@ body {
   height: 100vh;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.015;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3%3*");
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
 /* Animations */
@@ -254,6 +254,13 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.logo-img-dark {
+  height: 32px;
+  width: auto;
+  border-radius: 6px;
+  display: block;
+}
+
 
 .logo-accent {
   background: var(--accent-gradient);
@@ -306,6 +313,16 @@ body {
 .col-span-8 { grid-column: span 8; }
 .col-span-12 { grid-column: span 12; }
 
+/* Tablet & below: every bento column stacks to full width */
+@media (max-width: 1024px) {
+  .col-span-4,
+  .col-span-5,
+  .col-span-7,
+  .col-span-8 {
+    grid-column: span 12;
+  }
+}
+
 /* Double-Bezel (Doppelrand) Card Architecture */
 .bento-card {
   background-color: var(--bg-card-outer);
@@ -319,7 +336,7 @@ body {
 
 .bento-card:hover {
   border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 25px 50px -20px rgba(139, 92, 246, 0.06);
+  box-shadow: 0 25px 50px -20px var(--accent-glow);
 }
 
 .inner-core {
@@ -365,12 +382,15 @@ body {
   font-weight: 600;
   letter-spacing: -0.02em;
   margin-bottom: 0.5rem;
+  text-wrap: balance;
 }
 
 .section-subtitle {
   font-size: 0.85rem;
   color: var(--text-secondary);
   line-height: 1.5;
+  text-wrap: pretty;
+  max-width: 46ch;
 }
 
 /* Config Form & Inputs */
@@ -605,12 +625,22 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--accent-gradient);
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 10px var(--accent-glow);
   transition: transform 0.2s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-color);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 /* Primary buttons */
@@ -660,7 +690,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .btn-primary:hover .btn-icon-wrapper {
-  transform: translateX(3px);
+  transform: translate(3px, -1px) scale(1.05);
   background-color: rgba(255, 255, 255, 0.25);
 }
 
@@ -718,6 +748,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   transition: var(--transition-fluid);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 .telemetry-value.active {
@@ -943,10 +975,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .message-bubble.assistant .msg-content {
   background-color: #0d0d12;
-  border: 1px solid rgba(139, 92, 246, 0.15);
+  border: 1px solid var(--accent-glow);
   color: var(--text-primary);
   border-top-left-radius: 4px;
-  box-shadow: 0 4px 15px -5px rgba(139, 92, 246, 0.05);
+  box-shadow: 0 4px 15px -5px var(--accent-glow);
 }
 
 .message-bubble.assistant .msg-content.error-msg {
@@ -1046,16 +1078,23 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* Responsive Overrides (Under 1024px and 768px) */
-@media (max-width: 1024px) {
-  .col-span-5, .col-span-7 {
-    grid-column: span 12;
-  }
-}
-
 @media (max-width: 768px) {
   .app-container {
     padding: 1.5rem 1rem;
     gap: 1.5rem;
+  }
+
+  .bento-grid {
+    gap: 1rem;
+  }
+
+  /* Every bento block spans full width on phones */
+  .col-span-4,
+  .col-span-5,
+  .col-span-7,
+  .col-span-8,
+  .col-span-12 {
+    grid-column: span 12;
   }
 
   .header-nav {
@@ -1341,3 +1380,59 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: flex;
   justify-content: flex-end;
 }
+
+/* ── Global polish: selection, focus rings, scrollbars, motion ── */
+
+/* Themed text selection */
+::selection {
+  background: var(--accent-glow);
+  color: var(--text-primary);
+}
+
+/* Firefox scrollbar tinting to match the webkit thumbs */
+.chat-messages-container,
+.console-content,
+.modal-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Console output should align digits when JSON payloads stream in */
+.console-content code {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Keyboard-visible focus ring on all interactive controls.
+   Buttons clear focus styling on mouse click but keep it for keyboard nav. */
+.btn:focus-visible,
+.badge-btn:focus-visible,
+.icon-btn:focus-visible,
+.icon-btn-circle:focus-visible,
+.send-btn:focus-visible,
+.params-header:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--bg-color), 0 0 0 5px var(--accent-color);
+}
+
+/* Respect users who prefer reduced motion: keep the UI usable, drop the theatre */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .orb {
+    animation: none !important;
+  }
+
+  .animate-fade-in,
+  .message-bubble {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+

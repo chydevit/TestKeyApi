@@ -111,6 +111,8 @@ const TRANSLATIONS = {
     eyebrow_playground: "03 / Unified Playground",
     title_playground: "Playground Sandbox",
     btn_reset: "Reset Chat",
+    btn_export: "Export",
+    btn_copied: "Copied",
     chat_welcome: "Unified model sandbox initiated. Type a prompt below to interact with the model in real time.",
     chat_placeholder: "Send a message to the model...",
     chat_reset_msg: "Unified model sandbox reset. Ready for inputs.",
@@ -152,6 +154,8 @@ const TRANSLATIONS = {
     eyebrow_playground: "03 / សួនកុមាររួម",
     title_playground: "សួនកុមារសាកល្បង",
     btn_reset: "សម្អាតការសន្ទនា",
+    btn_export: "នាំចេញ",
+    btn_copied: "បានចម្លង",
     chat_welcome: "សួនកុមារសាកល្បងគំរូរួមត្រូវបានចាប់ផ្តើម។ វាយបញ្ចូលសារខាងក្រោមដើម្បីប្រាស្រ័យទាក់ទងគ្នា។",
     chat_placeholder: "ផ្ញើសារទៅកាន់គំរូ...",
     chat_reset_msg: "សួនកុមារសាកល្បងគំរូត្រូវបានសម្អាតឡើងវិញ។ រួចរាល់សម្រាប់ការបញ្ចូលសារ។",
@@ -193,6 +197,8 @@ const TRANSLATIONS = {
     eyebrow_playground: "03 / Entorno Unificado",
     title_playground: "Entorno de Pruebas de Chat",
     btn_reset: "Reiniciar Chat",
+    btn_export: "Exportar",
+    btn_copied: "Copiado",
     chat_welcome: "Entorno de pruebas unificado iniciado. Escriba un mensaje a continuación para interactuar en tiempo real.",
     chat_placeholder: "Envíe un mensaje al modelo...",
     chat_reset_msg: "Historial de chat restablecido. Listo para recibir mensajes.",
@@ -234,6 +240,8 @@ const TRANSLATIONS = {
     eyebrow_playground: "03 / 统一沙盒测试",
     title_playground: "对话沙盒测试区",
     btn_reset: "重置对话",
+    btn_export: "导出",
+    btn_copied: "已复制",
     chat_welcome: "统一模型对话测试已启动。在下方输入提示词以开始进行实时交互测试。",
     chat_placeholder: "输入给模型的消息...",
     chat_reset_msg: "多轮对话沙盒已重置，准备接收新指令。",
@@ -275,6 +283,8 @@ const TRANSLATIONS = {
     eyebrow_playground: "03 / 統一サンドボックス",
     title_playground: "サンドボックス・プレイグラウンド",
     btn_reset: "履歴をクリア",
+    btn_export: "エクスポート",
+    btn_copied: "コピー済み",
     chat_welcome: "統一モデルサンドボックスが起動しました。以下にプロンプトを入力して、リアルタイムで対話を開始します。",
     chat_placeholder: "モデルへ送るメッセージを入力...",
     chat_reset_msg: "対話履歴クリア。新しいメッセージを入力してください。",
@@ -291,32 +301,68 @@ const TRANSLATIONS = {
   }
 };
 
+// Persisted UI/config preferences (never includes the API key).
+const SETTINGS_KEY = 'testkeyapi_settings';
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+// Map raw provider errors to a short, human message. Falls back to the original.
+function friendlyError(message = '') {
+  const m = String(message).toLowerCase();
+  if (/401|unauthor|invalid[_ ]?api[_ ]?key|incorrect api key|invalid x-api-key/.test(m))
+    return 'Invalid API key. Check the key and that it matches the selected provider.';
+  if (/429|rate[ _]?limit|too many requests/.test(m))
+    return 'Rate limited. Too many requests — wait a moment and try again.';
+  if (/402|insufficient|billing|quota|credit|payment required/.test(m))
+    return 'Billing issue. This account has no credits or an unpaid balance.';
+  if (/403|forbidden|permission|not allowed|access denied/.test(m))
+    return 'Access denied. This key lacks permission for that model.';
+  if (/404|not found|does not exist|unknown model|no such model/.test(m))
+    return 'Model not found. This model name may be wrong or unavailable to your key.';
+  if (/fetch failed|network|enotfound|econnrefused|etimedout|timeout|failed to fetch/.test(m))
+    return 'Network error reaching the provider. Check your connection and try again.';
+  return message || 'Request failed.';
+}
+
 function App() {
+  // Restore the last-used setup (everything except the API key, which is
+  // deliberately never written to disk — see the security note in the docs modal).
+  const [savedSettings] = useState(loadSettings);
+  const initProvider = savedSettings.provider || 'mock';
+
   // UI Translation Language
-  const [lang, setLang] = useState('en');
+  const [lang, setLang] = useState(savedSettings.lang || 'en');
   // Visual Theme State
-  const [theme, setTheme] = useState('violet');
+  const [theme, setTheme] = useState(savedSettings.theme || 'violet');
   // Stage Routing State ('config' or 'sandbox')
   const [page, setPage] = useState('config');
 
   // Configuration States
-  const [provider, setProvider] = useState('mock');
-  const [apiKey, setApiKey] = useState('mock-key');
-  const [model, setModel] = useState('mock-gpt-4o');
-  const [customModel, setCustomModel] = useState(false);
-  const [customModelName, setCustomModelName] = useState('');
-  
+  const [provider, setProvider] = useState(initProvider);
+  const [apiKey, setApiKey] = useState(
+    initProvider === 'ollama' ? 'ollama' : initProvider === 'mock' ? 'mock-key' : ''
+  );
+  const [model, setModel] = useState(savedSettings.model || 'mock-gpt-4o');
+  const [customModel, setCustomModel] = useState(savedSettings.customModel ?? false);
+  const [customModelName, setCustomModelName] = useState(savedSettings.customModelName || '');
+
   // Advanced Parameters States
-  const [temp, setTemp] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [temp, setTemp] = useState(savedSettings.temp ?? 0.7);
+  const [maxTokens, setMaxTokens] = useState(savedSettings.maxTokens ?? '');
+  const [systemPrompt, setSystemPrompt] = useState(savedSettings.systemPrompt || '');
 
   // Status & UI States
   const [keyVisible, setKeyVisible] = useState(false);
   const [paramsExpanded, setParamsExpanded] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isValidated, setIsValidated] = useState(false);
-  
+
   // Telemetry States
   const [telemetry, setTelemetry] = useState({ status: '—', latency: '—', usage: '—' });
   const [consoleOutput, setConsoleOutput] = useState('// Telemetry logs will appear here after validation request is sent.');
@@ -326,6 +372,7 @@ function App() {
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [chatCopied, setChatCopied] = useState(false);
 
   // Modals Visibility
   const [showDocs, setShowDocs] = useState(false);
@@ -335,6 +382,21 @@ function App() {
   const chatInputRef = useRef(null);
 
   const t = (key) => TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key;
+
+  // Persist the current setup (minus the API key) so a reload keeps your preferences.
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      theme, lang, provider, model, customModel, customModelName, temp, maxTokens, systemPrompt
+    }));
+  }, [theme, lang, provider, model, customModel, customModelName, temp, maxTokens, systemPrompt]);
+
+  // Close the docs modal on Escape
+  useEffect(() => {
+    if (!showDocs) return;
+    const onKey = (e) => { if (e.key === 'Escape') setShowDocs(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showDocs]);
 
   // Auto Scroll Chat Window
   useEffect(() => {
@@ -428,9 +490,10 @@ function App() {
     } catch (error) {
       clearInterval(timerInterval);
       setIsValidated(false);
+      const nice = friendlyError(error.message);
       setLastPayload({ error: error.message });
       setTelemetry({ status: 'INVALID', latency: 'ERR', usage: '—' });
-      setConsoleOutput(`// Verification Failed:\n${error.message}`);
+      setConsoleOutput(`// Verification Failed:\n${nice}\n\n// Raw: ${error.message}`);
     } finally {
       setIsVerifying(false);
     }
@@ -484,8 +547,9 @@ function App() {
         throw new Error(data.error);
       }
     } catch (error) {
+      const nice = friendlyError(error.message);
       setConsoleOutput(`// Request Error:\n${error.message}`);
-      setChatHistory(prev => [...prev, { role: 'assistant', content: `Error executing request: ${error.message}`, error: true }]);
+      setChatHistory(prev => [...prev, { role: 'assistant', content: nice, error: true }]);
     } finally {
       setIsSendingChat(false);
     }
@@ -500,6 +564,21 @@ function App() {
 
   const handleResetChat = () => {
     setChatHistory([]);
+  };
+
+  // Copy the whole conversation to the clipboard as Markdown
+  const handleExportChat = () => {
+    if (!chatHistory.length) return;
+    const modelName = customModel ? customModelName : model;
+    const md = chatHistory
+      .map((m) => {
+        const who = m.role === 'assistant' ? modelName : m.role === 'system' ? 'System' : 'User';
+        return `**${who}:**\n\n${m.content}`;
+      })
+      .join('\n\n---\n\n');
+    navigator.clipboard.writeText(md);
+    setChatCopied(true);
+    setTimeout(() => setChatCopied(false), 1600);
   };
 
   const formatTokenUsage = (usage) => {
@@ -553,10 +632,10 @@ function App() {
       <main className="app-container">
         {/* Header Navigation Pill */}
         <header className="header-nav">
-          <div className="logo">
-            <img src="/logo2.png" className="logo-img" alt="Logo" />
+          <a href="/" onClick={(e) => { e.preventDefault(); setPage('config'); }} className="logo" style={{ textDecoration: 'none', cursor: 'pointer', color: 'inherit' }}>
+            <img src="/logo4.png" className="logo-img" alt="TestKeyAPI Logo" />
             <span>TestKeyAPI</span>
-          </div>
+          </a>
           
           <div className="header-controls">
             <div className="theme-select-wrapper">
@@ -614,6 +693,9 @@ function App() {
                   <div className="chat-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                     <button onClick={() => setPage('config')} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <i className="ph-light ph-sliders"></i> {t('title_credentials')}
+                    </button>
+                    <button onClick={handleExportChat} className="btn btn-secondary btn-sm" disabled={chatHistory.length === 0} title="Copy conversation as Markdown" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <i className={`ph-light ${chatCopied ? 'ph-check' : 'ph-copy'}`}></i> {chatCopied ? t('btn_copied') : t('btn_export')}
                     </button>
                     <button onClick={handleResetChat} className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <i className="ph-light ph-trash"></i> {t('btn_reset')}
@@ -742,157 +824,157 @@ function App() {
                 </div>
 
                 <form onSubmit={validateCredentials} className="config-form">
-                  <div className="input-group">
-                    <label htmlFor="provider-select">{t('label_provider')}</label>
-                    <div className="select-wrapper">
-                      <i className="ph-light ph-cpu input-icon"></i>
-                      <select id="provider-select" value={provider} onChange={handleProviderChange} required>
-                        <option value="mock">Mock Sandbox (No Key Required)</option>
-                        <option value="openai">OpenAI</option>
-                        <option value="anthropic">Anthropic</option>
-                        <option value="gemini">Google Gemini</option>
-                        <option value="groq">Groq</option>
-                        <option value="openrouter">OpenRouter</option>
-                        <option value="deepseek">DeepSeek (Direct)</option>
-                        <option value="mistral">Mistral AI</option>
-                        <option value="cohere">Cohere</option>
-                        <option value="ollama">Ollama (Local)</option>
-                      </select>
-                      <i className="ph-light ph-caret-down select-caret"></i>
-                    </div>
-                  </div>
+                      <div className="input-group">
+                        <label htmlFor="provider-select">{t('label_provider')}</label>
+                        <div className="select-wrapper">
+                          <i className="ph-light ph-cpu input-icon"></i>
+                          <select id="provider-select" value={provider} onChange={handleProviderChange} required>
+                            <option value="mock">Mock Sandbox (No Key Required)</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="groq">Groq</option>
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="deepseek">DeepSeek (Direct)</option>
+                            <option value="mistral">Mistral AI</option>
+                            <option value="cohere">Cohere</option>
+                            <option value="ollama">Ollama (Local)</option>
+                          </select>
+                          <i className="ph-light ph-caret-down select-caret"></i>
+                        </div>
+                      </div>
 
-                  <div className="input-group">
-                    <label htmlFor="api-key-input">{t('label_api_key')}</label>
-                    <div className="input-wrapper">
-                      <i className="ph-light ph-key-return input-icon"></i>
-                      <input 
-                        type={keyVisible ? 'text' : 'password'} 
-                        id="api-key-input" 
-                        value={apiKey} 
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder={provider === 'mock' ? 'Not required (using simulated test key)' : provider === 'ollama' ? 'Not required (using local Ollama)' : 'sk-...'} 
-                        required={provider !== 'mock' && provider !== 'ollama'}
-                        disabled={provider === 'mock' || provider === 'ollama'}
-                        autoComplete="off" 
-                      />
-                      {provider !== 'mock' && provider !== 'ollama' && (
+                      <div className="input-group">
+                        <label htmlFor="api-key-input">{t('label_api_key')}</label>
+                        <div className="input-wrapper">
+                          <i className="ph-light ph-key-return input-icon"></i>
+                          <input 
+                            type={keyVisible ? 'text' : 'password'} 
+                            id="api-key-input" 
+                            value={apiKey} 
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder={provider === 'mock' ? 'Not required (using simulated test key)' : provider === 'ollama' ? 'Not required (using local Ollama)' : 'sk-...'} 
+                            required={provider !== 'mock' && provider !== 'ollama'}
+                            disabled={provider === 'mock' || provider === 'ollama'}
+                            autoComplete="off" 
+                          />
+                          {provider !== 'mock' && provider !== 'ollama' && (
+                            <button 
+                              type="button" 
+                              className="icon-btn" 
+                              onClick={() => setKeyVisible(!keyVisible)} 
+                              title="Toggle Visibility"
+                            >
+                              <i className={`ph-light ${keyVisible ? 'ph-eye-slash' : 'ph-eye'}`}></i>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="input-row">
+                        <div className="input-group w-full">
+                          <label htmlFor="model-select">{t('label_model')}</label>
+                          <div className="select-wrapper">
+                            <i className="ph-light ph-sparkle input-icon"></i>
+                            <select 
+                              id="model-select" 
+                              value={model} 
+                              onChange={(e) => setModel(e.target.value)} 
+                              disabled={customModel} 
+                              required
+                            >
+                              {(PROVIDER_MODELS[provider] || []).map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                              ))}
+                            </select>
+                            <i className="ph-light ph-caret-down select-caret"></i>
+                          </div>
+                        </div>
                         <button 
                           type="button" 
-                          className="icon-btn" 
-                          onClick={() => setKeyVisible(!keyVisible)} 
-                          title="Toggle Visibility"
+                          className={`badge-btn ${customModel ? 'active' : ''}`}
+                          onClick={() => setCustomModel(!customModel)}
+                          title="Toggle Custom Model Input"
                         >
-                          <i className={`ph-light ${keyVisible ? 'ph-eye-slash' : 'ph-eye'}`}></i>
+                          {t('btn_custom_model')}
                         </button>
+                      </div>
+
+                      {customModel && (
+                        <div className="input-group animate-fade-in">
+                          <label htmlFor="custom-model-input">{t('label_custom_model')}</label>
+                          <div className="input-wrapper">
+                            <i className="ph-light ph-terminal-window input-icon"></i>
+                            <input 
+                              type="text" 
+                              id="custom-model-input" 
+                              value={customModelName}
+                              onChange={(e) => setCustomModelName(e.target.value)}
+                              placeholder="e.g., gpt-4o-2024-11-20"
+                              required={customModel}
+                            />
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
 
-                  <div className="input-row">
-                    <div className="input-group w-full">
-                      <label htmlFor="model-select">{t('label_model')}</label>
-                      <div className="select-wrapper">
-                        <i className="ph-light ph-sparkle input-icon"></i>
-                        <select 
-                          id="model-select" 
-                          value={model} 
-                          onChange={(e) => setModel(e.target.value)} 
-                          disabled={customModel} 
-                          required
+                      {/* Collapsible advanced parameters */}
+                      <div className="parameters-section">
+                        <button 
+                          type="button" 
+                          className={`params-header ${paramsExpanded ? 'expanded' : ''}`}
+                          onClick={() => setParamsExpanded(!paramsExpanded)}
                         >
-                          {(PROVIDER_MODELS[provider] || []).map((m) => (
-                            <option key={m.value} value={m.value}>{m.label}</option>
-                          ))}
-                        </select>
-                        <i className="ph-light ph-caret-down select-caret"></i>
-                      </div>
-                    </div>
-                    <button 
-                      type="button" 
-                      className={`badge-btn ${customModel ? 'active' : ''}`}
-                      onClick={() => setCustomModel(!customModel)}
-                      title="Toggle Custom Model Input"
-                    >
-                      {t('btn_custom_model')}
-                    </button>
-                  </div>
+                          <span><i className="ph-light ph-sliders-horizontal"></i> {t('params_header')}</span>
+                          <i className="ph-light ph-caret-down arrow-icon"></i>
+                        </button>
+                        
+                        <div className={`params-body ${paramsExpanded ? '' : 'collapsed'}`}>
+                          <div className="input-group">
+                            <div className="slider-label-row">
+                              <label htmlFor="temp-slider">{t('label_temp')}</label>
+                              <span>{temp}</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              id="temp-slider" 
+                              min="0" 
+                              max="2" 
+                              step="0.1" 
+                              value={temp} 
+                              onChange={(e) => setTemp(parseFloat(e.target.value))} 
+                            />
+                          </div>
 
-                  {customModel && (
-                    <div className="input-group animate-fade-in">
-                      <label htmlFor="custom-model-input">{t('label_custom_model')}</label>
-                      <div className="input-wrapper">
-                        <i className="ph-light ph-terminal-window input-icon"></i>
-                        <input 
-                          type="text" 
-                          id="custom-model-input" 
-                          value={customModelName}
-                          onChange={(e) => setCustomModelName(e.target.value)}
-                          placeholder="e.g., gpt-4o-2024-11-20"
-                          required={customModel}
-                        />
-                      </div>
-                    </div>
-                  )}
+                          <div className="input-group">
+                            <label htmlFor="max-tokens-input">{t('label_max_tokens')}</label>
+                            <div className="input-wrapper">
+                              <i className="ph-light ph-hash input-icon"></i>
+                              <input 
+                                type="number" 
+                                id="max-tokens-input" 
+                                value={maxTokens}
+                                onChange={(e) => setMaxTokens(e.target.value)}
+                                placeholder="Default (e.g. 1024)" 
+                                min="1" 
+                              />
+                            </div>
+                          </div>
 
-                  {/* Collapsible advanced parameters */}
-                  <div className="parameters-section">
-                    <button 
-                      type="button" 
-                      className={`params-header ${paramsExpanded ? 'expanded' : ''}`}
-                      onClick={() => setParamsExpanded(!paramsExpanded)}
-                    >
-                      <span><i className="ph-light ph-sliders-horizontal"></i> {t('params_header')}</span>
-                      <i className="ph-light ph-caret-down arrow-icon"></i>
-                    </button>
-                    
-                    <div className={`params-body ${paramsExpanded ? '' : 'collapsed'}`}>
-                      <div className="input-group">
-                        <div className="slider-label-row">
-                          <label htmlFor="temp-slider">{t('label_temp')}</label>
-                          <span>{temp}</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          id="temp-slider" 
-                          min="0" 
-                          max="2" 
-                          step="0.1" 
-                          value={temp} 
-                          onChange={(e) => setTemp(parseFloat(e.target.value))} 
-                        />
-                      </div>
-
-                      <div className="input-group">
-                        <label htmlFor="max-tokens-input">{t('label_max_tokens')}</label>
-                        <div className="input-wrapper">
-                          <i className="ph-light ph-hash input-icon"></i>
-                          <input 
-                            type="number" 
-                            id="max-tokens-input" 
-                            value={maxTokens}
-                            onChange={(e) => setMaxTokens(e.target.value)}
-                            placeholder="Default (e.g. 1024)" 
-                            min="1" 
-                          />
+                          <div className="input-group">
+                            <label htmlFor="system-prompt-input">{t('label_system_prompt')}</label>
+                            <div className="input-wrapper">
+                              <i className="ph-light ph-robot input-icon"></i>
+                              <textarea 
+                                id="system-prompt-input" 
+                                rows="3" 
+                                value={systemPrompt}
+                                onChange={(e) => setSystemPrompt(e.target.value)}
+                                placeholder="You are a helpful AI assistant."
+                              ></textarea>
+                            </div>
+                          </div>
                         </div>
                       </div>
-
-                      <div className="input-group">
-                        <label htmlFor="system-prompt-input">{t('label_system_prompt')}</label>
-                        <div className="input-wrapper">
-                          <i className="ph-light ph-robot input-icon"></i>
-                          <textarea 
-                            id="system-prompt-input" 
-                            rows="3" 
-                            value={systemPrompt}
-                            onChange={(e) => setSystemPrompt(e.target.value)}
-                            placeholder="You are a helpful AI assistant."
-                          ></textarea>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   <button type="submit" className="btn btn-primary" disabled={isVerifying}>
                     <span className="btn-text">
@@ -907,7 +989,7 @@ function App() {
             </section>
 
             {/* Bento Block 2: Diagnostic Console */}
-            <section className="bento-card double-bezel col-span-7">
+            <section className="bento-card double-bezel col-span-7 animate-fade-in delay-100">
               <div className="inner-core flex-column h-full">
                 <div className="card-header">
                   <span className="eyebrow-tag">{t('eyebrow_telemetry')}</span>

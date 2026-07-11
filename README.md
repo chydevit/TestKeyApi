@@ -43,6 +43,8 @@ TestKeyAPI is a developer-centric toolbox built to solve common API debugging, v
 - **💻 Developer Console**: Syntactically highlights and inspects raw API JSON response payloads.
 - **💬 Unified Playground**: Activates a multi-turn chat environment with configurable temperature sliders, max token settings, and custom system prompts.
 - **🗺️ Internationalization**: Dynamic UI localizer supporting **English (EN)**, **Khmer (KM)**, **Spanish (ES)**, **Chinese (ZH)**, and **Japanese (JA)**.
+- **🗃️ Credentials CRUD Database**: Save, edit, rename, and delete validated key configurations locally (stored securely in browser `localStorage` for instant loading and quick multi-provider testing).
+- **🚀 Postman Client Mode**: Send general-purpose raw HTTP requests (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`) with custom header JSON and body structures. Requests are proxied through the local backend to bypass browser CORS constraints, measuring real-time latency and rendering response payloads.
 - **📖 Onboarding Documentation**: A built-in user guide modal available at a click directly in the interface.
 
 ---
